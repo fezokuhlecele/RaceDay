@@ -120,6 +120,7 @@ The planned API is designed to support the database structure created for Part 1
 
 ---
 
+
 # 12. HTTP Status Codes
 
 The RaceDay API will use standard HTTP status codes to communicate the outcome of requests.
@@ -202,3 +203,35 @@ The planned RaceDay API contains endpoints for:
 * Weather information
 
 This endpoint plan will be used as the reference specification when implementing the RaceDay RESTful API in Part 2. Any changes made during implementation will be documented and justified in the project README.
+
+## API Endpoint Grouping
+
+The RaceDay API is organised into functional groups to make the system easier to understand and maintain.
+
+### Authentication
+
+Authentication endpoints allow users to register and log into the RaceDay system. These endpoints establish the identity and role of each user.
+
+### User Profile
+
+User profile endpoints allow authenticated users to retrieve and update their profile information.
+
+### Events
+
+Event endpoints allow organisers to create, view, update and delete events. Participants can use the public event endpoints to browse available events.
+
+### Categories
+
+Category endpoints allow organisers to manage the different running, walking and cycling categories available within the system.
+
+### Event Enrolments
+
+Enrolment endpoints allow participants to enter an event by selecting an available category. Organisers can view enrolments associated with their events.
+
+### Results
+
+Result endpoints allow organisers to capture and manage race results. Participants can retrieve their own results.
+
+### Routes and Weather
+
+Route and weather endpoints provide additional information that can assist participants when preparing for an event.
