@@ -1,5 +1,43 @@
 /*
 ========================================================
+RaceDay Database Design Notes
+Part 1 - Section C
+========================================================
+
+Purpose:
+This script creates the RaceDay SQL Server database
+structure and populates it with sample data.
+
+Database entities:
+1. Users
+2. Events
+3. Categories
+4. EventCategories
+5. Enrolments
+6. Results
+7. Routes
+8. WeatherInformation
+
+Relationships:
+- One Organiser can manage many Events.
+- One Event can contain many EventCategories.
+- One Category can be used by many Events through EventCategories.
+- One Participant can have many Enrolments.
+- One EventCategory can have many Enrolments.
+- One Enrolment can have one Result.
+- One Event has one Route.
+- One Event has one WeatherInformation record.
+
+The script uses primary keys, foreign keys, UNIQUE
+constraints, CHECK constraints, NOT NULL constraints
+and DEFAULT values to maintain data integrity.
+
+The sample data demonstrates the two RaceDay roles:
+Organiser and Participant.
+========================================================
+*/
+/*
+========================================================
 RaceDay Database
 Part 1 - Section C: SQL Database Script
 ========================================================
