@@ -1,118 +1,423 @@
--- ============================================================================
--- RaceDay System - Database Schema & Data Seeding Script (SQL Server / SSMS)
--- ============================================================================
+/*
+========================================================
+RaceDay Database
+Part 1 - Section C: SQL Database Script
+========================================================
+*/
 
-IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'RaceDayDb')
+USE master;
+GO
+
+IF DB_ID('RaceDay') IS NULL
 BEGIN
-    CREATE DATABASE RaceDayDb;
-END
+    CREATE DATABASE RaceDay;
+END;
 GO
 
-USE RaceDayDb;
+USE RaceDay;
 GO
 
--- 1. Drop Tables if they exist (Enforces clean execution)
-IF OBJECT_ID('dbo.Results', 'U') IS NOT NULL DROP TABLE dbo.Results;
-IF OBJECT_ID('dbo.Enrolments', 'U') IS NOT NULL DROP TABLE dbo.Enrolments;
-IF OBJECT_ID('dbo.Categories', 'U') IS NOT NULL DROP TABLE dbo.Categories;
-IF OBJECT_ID('dbo.Events', 'U') IS NOT NULL DROP TABLE dbo.Events;
-IF OBJECT_ID('dbo.Users', 'U') IS NOT NULL DROP TABLE dbo.Users;
-IF OBJECT_ID('dbo.Roles', 'U') IS NOT NULL DROP TABLE dbo.Roles;
 
--- 2. Table Creation
-CREATE TABLE dbo.Roles (
-    RoleId INT IDENTITY(1,1) PRIMARY KEY,
-    RoleName VARCHAR(50) NOT NULL UNIQUE
+/* ======================================================
+   USERS
+   ====================================================== */
+
+CREATE TABLE Users
+(
+    UserID INT IDENTITY(1,1) PRIMARY KEY,
+    FirstName NVARCHAR(50) NOT NULL,
+    LastName NVARCHAR(50) NOT NULL,
+    Email NVARCHAR(100) NOT NULL UNIQUE,
+    PasswordHash NVARCHAR(255) NOT NULL,
+    Role NVARCHAR(20) NOT NULL,
+    PhoneNumber NVARCHAR(20) NULL,
+    CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+
+    CONSTRAINT CK_Users_Role
+        CHECK (Role IN ('Organiser', 'Participant'))
 );
+GO
 
-CREATE TABLE dbo.Users (
-    UserId INT IDENTITY(1,1) PRIMARY KEY,
-    RoleId INT NOT NULL,
-    FullName VARCHAR(100) NOT NULL,
-    Email VARCHAR(150) NOT NULL UNIQUE,
-    PasswordHash VARCHAR(255) NOT NULL,
-    PhoneNumber VARCHAR(20) NULL,
-    CreatedAt DATETIME DEFAULT GETDATE(),
-    CONSTRAINT FK_Users_Roles FOREIGN KEY (RoleId) REFERENCES dbo.Roles(RoleId)
+
+/* ======================================================
+   EVENTS
+   ====================================================== */
+
+CREATE TABLE Events
+(
+    EventID INT IDENTITY(1,1) PRIMARY KEY,
+    OrganiserID INT NOT NULL,
+    EventName NVARCHAR(150) NOT NULL,
+    Description NVARCHAR(500) NULL,
+    EventDate DATE NOT NULL,
+    StartTime TIME NOT NULL,
+    Location NVARCHAR(200) NOT NULL,
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Upcoming',
+    CreatedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+
+    CONSTRAINT FK_Events_Users
+        FOREIGN KEY (OrganiserID)
+        REFERENCES Users(UserID),
+
+    CONSTRAINT CK_Events_Status
+        CHECK (Status IN ('Upcoming', 'Open', 'Completed', 'Cancelled'))
 );
+GO
 
-CREATE TABLE dbo.Events (
-    EventId INT IDENTITY(1,1) PRIMARY KEY,
-    OrganiserId INT NOT NULL,
-    Title VARCHAR(150) NOT NULL,
-    Description VARCHAR(MAX) NOT NULL,
-    Location VARCHAR(150) NOT NULL,
-    EventDate DATETIME NOT NULL,
-    ImageBlobUrl VARCHAR(500) NULL,
-    CreatedAt DATETIME DEFAULT GETDATE(),
-    CONSTRAINT FK_Events_Users FOREIGN KEY (OrganiserId) REFERENCES dbo.Users(UserId)
-);
 
-CREATE TABLE dbo.Categories (
-    CategoryId INT IDENTITY(1,1) PRIMARY KEY,
-    EventId INT NOT NULL,
-    CategoryName VARCHAR(100) NOT NULL,
+/* ======================================================
+   CATEGORIES
+   ====================================================== */
+
+CREATE TABLE Categories
+(
+    CategoryID INT IDENTITY(1,1) PRIMARY KEY,
+    CategoryName NVARCHAR(100) NOT NULL,
+    Description NVARCHAR(300) NULL,
     DistanceKm DECIMAL(6,2) NOT NULL,
-    Fee DECIMAL(10,2) NOT NULL CHECK (Fee >= 0),
-    CONSTRAINT FK_Categories_Events FOREIGN KEY (EventId) REFERENCES dbo.Events(EventId) ON DELETE CASCADE
-);
+    EventType NVARCHAR(20) NOT NULL,
 
-CREATE TABLE dbo.Enrolments (
-    EnrolmentId INT IDENTITY(1,1) PRIMARY KEY,
-    ParticipantId INT NOT NULL,
-    CategoryId INT NOT NULL,
-    EnrolmentDate DATETIME DEFAULT GETDATE(),
-    PaymentStatus VARCHAR(50) NOT NULL DEFAULT 'Confirmed',
-    CONSTRAINT FK_Enrolments_Users FOREIGN KEY (ParticipantId) REFERENCES dbo.Users(UserId),
-    CONSTRAINT FK_Enrolments_Categories FOREIGN KEY (CategoryId) REFERENCES dbo.Categories(CategoryId),
-    CONSTRAINT UC_Participant_Category UNIQUE(ParticipantId, CategoryId)
-);
+    CONSTRAINT CK_Categories_Distance
+        CHECK (DistanceKm > 0),
 
-CREATE TABLE dbo.Results (
-    ResultId INT IDENTITY(1,1) PRIMARY KEY,
-    EnrolmentId INT NOT NULL UNIQUE,
-    FinishTime TIME NOT NULL,
-    OverallPosition INT NOT NULL CHECK (OverallPosition > 0),
-    CategoryPosition INT NOT NULL CHECK (CategoryPosition > 0),
-    RecordedAt DATETIME DEFAULT GETDATE(),
-    CONSTRAINT FK_Results_Enrolments FOREIGN KEY (EnrolmentId) REFERENCES dbo.Enrolments(EnrolmentId)
+    CONSTRAINT CK_Categories_EventType
+        CHECK (EventType IN ('Running', 'Walking', 'Cycling'))
 );
 GO
 
--- 3. Data Seeding
-INSERT INTO dbo.Roles (RoleName) VALUES ('Organiser'), ('Participant');
 
--- Seed Users (2 Organisers, 2 Participants)
-INSERT INTO dbo.Users (RoleId, FullName, Email, PasswordHash, PhoneNumber) VALUES
-(1, 'Sipho Zulu', 'sipho@comrades.co.za', 'AQAAAAEAACcQAAAAEHASH1...', '+27821234567'),
-(1, 'Anika van der Merwe', 'anika@cycletour.co.za', 'AQAAAAEAACcQAAAAEHASH2...', '+27839876543'),
-(2, 'Thabo Molefe', 'thabo.runner@gmail.com', 'AQAAAAEAACcQAAAAEHASH3...', '+27711112222'),
-(2, 'Sarah Jenkins', 'sarah.j@yahoo.com', 'AQAAAAEAACcQAAAAEHASH4...', '+27723334444');
+/* ======================================================
+   EVENT CATEGORIES
+   ====================================================== */
 
--- Seed 3 Iconic SA Events
-INSERT INTO dbo.Events (OrganiserId, Title, Description, Location, EventDate) VALUES
-(1, 'Comrades Marathon 2027', 'The ultimate human race between Pietermaritzburg and Durban.', 'Durban, KZN', '2027-06-13 05:30:00'),
-(2, 'Cape Town Cycle Tour', 'World-class 109km scenic cycle ride around the Cape Peninsula.', 'Cape Town, WC', '2027-03-14 06:00:00'),
-(1, 'Soweto Marathon', 'The Peoples Marathon traversing historical landmarks in Soweto.', 'Soweto, GP', '2026-11-01 06:00:00');
+CREATE TABLE EventCategories
+(
+    EventCategoryID INT IDENTITY(1,1) PRIMARY KEY,
+    EventID INT NOT NULL,
+    CategoryID INT NOT NULL,
+    EntryFee DECIMAL(10,2) NOT NULL,
+    MaximumParticipants INT NOT NULL,
 
--- Seed Categories
-INSERT INTO dbo.Categories (EventId, CategoryName, DistanceKm, Fee) VALUES
-(1, 'Ultra Marathon', 89.00, 1200.00),
-(2, 'Main Cycle Race', 109.00, 850.00),
-(2, 'Short Cycle Route', 42.00, 450.00),
-(3, 'Full Marathon', 42.20, 350.00),
-(3, 'Half Marathon', 21.10, 250.00),
-(3, '10km Open Run', 10.00, 150.00);
+    CONSTRAINT FK_EventCategories_Events
+        FOREIGN KEY (EventID)
+        REFERENCES Events(EventID),
 
--- Seed Enrolments
-INSERT INTO dbo.Enrolments (ParticipantId, CategoryId) VALUES
-(3, 1), -- Thabo in Comrades
-(3, 4), -- Thabo in Soweto Full Marathon
-(4, 2), -- Sarah in Cape Town Cycle Tour
-(4, 6); -- Sarah in Soweto 10km
+    CONSTRAINT FK_EventCategories_Categories
+        FOREIGN KEY (CategoryID)
+        REFERENCES Categories(CategoryID),
 
--- Seed Sample Results
-INSERT INTO dbo.Results (EnrolmentId, FinishTime, OverallPosition, CategoryPosition) VALUES
-(1, '06:14:22', 142, 38),
-(3, '03:45:10', 88, 12);
+    CONSTRAINT UQ_EventCategories
+        UNIQUE (EventID, CategoryID),
+
+    CONSTRAINT CK_EventCategories_EntryFee
+        CHECK (EntryFee >= 0),
+
+    CONSTRAINT CK_EventCategories_MaxParticipants
+        CHECK (MaximumParticipants > 0)
+);
+GO
+
+
+/* ======================================================
+   ENROLMENTS
+   ====================================================== */
+
+CREATE TABLE Enrolments
+(
+    EnrolmentID INT IDENTITY(1,1) PRIMARY KEY,
+    ParticipantID INT NOT NULL,
+    EventCategoryID INT NOT NULL,
+    EnrolmentDate DATETIME2 NOT NULL DEFAULT GETDATE(),
+    RaceNumber INT NOT NULL,
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Active',
+
+    CONSTRAINT FK_Enrolments_Participants
+        FOREIGN KEY (ParticipantID)
+        REFERENCES Users(UserID),
+
+    CONSTRAINT FK_Enrolments_EventCategories
+        FOREIGN KEY (EventCategoryID)
+        REFERENCES EventCategories(EventCategoryID),
+
+    CONSTRAINT UQ_Enrolments_Participant_EventCategory
+        UNIQUE (ParticipantID, EventCategoryID),
+
+    CONSTRAINT UQ_Enrolments_RaceNumber
+        UNIQUE (EventCategoryID, RaceNumber),
+
+    CONSTRAINT CK_Enrolments_Status
+        CHECK (Status IN ('Active', 'Cancelled'))
+);
+GO
+
+
+/* ======================================================
+   RESULTS
+   ====================================================== */
+
+CREATE TABLE Results
+(
+    ResultID INT IDENTITY(1,1) PRIMARY KEY,
+    EnrolmentID INT NOT NULL UNIQUE,
+    FinishTime TIME NOT NULL,
+    OverallPosition INT NOT NULL,
+    CategoryPosition INT NOT NULL,
+    ResultStatus NVARCHAR(20) NOT NULL DEFAULT 'Finished',
+    RecordedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+
+    CONSTRAINT FK_Results_Enrolments
+        FOREIGN KEY (EnrolmentID)
+        REFERENCES Enrolments(EnrolmentID),
+
+    CONSTRAINT CK_Results_OverallPosition
+        CHECK (OverallPosition > 0),
+
+    CONSTRAINT CK_Results_CategoryPosition
+        CHECK (CategoryPosition > 0),
+
+    CONSTRAINT CK_Results_Status
+        CHECK (ResultStatus IN ('Finished', 'DNF', 'DNS', 'Disqualified'))
+);
+GO
+
+
+/* ======================================================
+   ROUTES
+   ====================================================== */
+
+CREATE TABLE Routes
+(
+    RouteID INT IDENTITY(1,1) PRIMARY KEY,
+    EventID INT NOT NULL UNIQUE,
+    RouteName NVARCHAR(150) NOT NULL,
+    DistanceKm DECIMAL(6,2) NOT NULL,
+    RouteDescription NVARCHAR(500) NULL,
+    MapUrl NVARCHAR(500) NULL,
+
+    CONSTRAINT FK_Routes_Events
+        FOREIGN KEY (EventID)
+        REFERENCES Events(EventID),
+
+    CONSTRAINT CK_Routes_Distance
+        CHECK (DistanceKm > 0)
+);
+GO
+
+
+/* ======================================================
+   WEATHER INFORMATION
+   ====================================================== */
+
+CREATE TABLE WeatherInformation
+(
+    WeatherID INT IDENTITY(1,1) PRIMARY KEY,
+    EventID INT NOT NULL UNIQUE,
+    Temperature DECIMAL(5,2) NOT NULL,
+    WeatherCondition NVARCHAR(100) NOT NULL,
+    WindSpeed DECIMAL(6,2) NULL,
+    RainProbability DECIMAL(5,2) NULL,
+    RecordedAt DATETIME2 NOT NULL DEFAULT GETDATE(),
+
+    CONSTRAINT FK_WeatherInformation_Events
+        FOREIGN KEY (EventID)
+        REFERENCES Events(EventID),
+
+    CONSTRAINT CK_WeatherInformation_RainProbability
+        CHECK (RainProbability >= 0 AND RainProbability <= 100)
+);
+GO
+
+
+/* ======================================================
+   SAMPLE USERS
+   ====================================================== */
+
+INSERT INTO Users
+    (FirstName, LastName, Email, PasswordHash, Role, PhoneNumber)
+VALUES
+    ('Thando', 'Mkhize',
+     'thando.mkhize@raceday.co.za',
+     'DemoHash_Organiser1',
+     'Organiser',
+     '0821112233'),
+
+    ('Lerato', 'Naidoo',
+     'lerato.naidoo@raceday.co.za',
+     'DemoHash_Organiser2',
+     'Organiser',
+     '0832223344'),
+
+    ('Sipho', 'Dlamini',
+     'sipho.dlamini@example.com',
+     'DemoHash_Participant1',
+     'Participant',
+     '0843334455'),
+
+    ('Ayanda', 'Cele',
+     'ayanda.cele@example.com',
+     'DemoHash_Participant2',
+     'Participant',
+     '0854445566');
+GO
+
+
+/* ======================================================
+   SAMPLE EVENTS
+   ====================================================== */
+
+INSERT INTO Events
+    (OrganiserID, EventName, Description, EventDate,
+     StartTime, Location, Status)
+VALUES
+    (1,
+     'Durban Summer Run',
+     'A road running event along the Durban beachfront.',
+     '2026-11-15',
+     '06:00',
+     'Durban Beachfront, KwaZulu-Natal',
+     'Open'),
+
+    (1,
+     'Umlazi Community Road Race',
+     'A community running and walking event in Umlazi.',
+     '2026-12-06',
+     '06:30',
+     'Umlazi, KwaZulu-Natal',
+     'Open'),
+
+    (2,
+     'KwaZulu-Natal Cycle Challenge',
+     'A cycling event for recreational and competitive cyclists.',
+     '2027-01-24',
+     '05:30',
+     'Durban, KwaZulu-Natal',
+     'Upcoming');
+GO
+
+
+/* ======================================================
+   SAMPLE CATEGORIES
+   ====================================================== */
+
+INSERT INTO Categories
+    (CategoryName, Description, DistanceKm, EventType)
+VALUES
+    ('5KM Run',
+     '5 kilometre road running category.',
+     5.00,
+     'Running'),
+
+    ('10KM Run',
+     '10 kilometre road running category.',
+     10.00,
+     'Running'),
+
+    ('21.1KM Half Marathon',
+     'Half marathon road running category.',
+     21.10,
+     'Running'),
+
+    ('10KM Walk',
+     '10 kilometre walking category.',
+     10.00,
+     'Walking'),
+
+    ('40KM Cycle',
+     '40 kilometre cycling category.',
+     40.00,
+     'Cycling'),
+
+    ('80KM Cycle',
+     '80 kilometre cycling category.',
+     80.00,
+     'Cycling');
+GO
+
+
+/* ======================================================
+   EVENT CATEGORY LINKS
+   ====================================================== */
+
+INSERT INTO EventCategories
+    (EventID, CategoryID, EntryFee, MaximumParticipants)
+VALUES
+    (1, 1, 120.00, 500),
+    (1, 2, 180.00, 750),
+    (1, 3, 250.00, 500),
+
+    (2, 1, 80.00, 300),
+    (2, 2, 120.00, 500),
+    (2, 4, 100.00, 300),
+
+    (3, 5, 350.00, 500),
+    (3, 6, 500.00, 300);
+GO
+
+
+/* ======================================================
+   SAMPLE ENROLMENTS
+   ====================================================== */
+
+INSERT INTO Enrolments
+    (ParticipantID, EventCategoryID, RaceNumber, Status)
+VALUES
+    (3, 1, 101, 'Active'),
+    (4, 2, 102, 'Active'),
+    (3, 4, 201, 'Active'),
+    (4, 7, 301, 'Active');
+GO
+
+
+/* ======================================================
+   SAMPLE RESULTS
+   ====================================================== */
+
+INSERT INTO Results
+    (EnrolmentID, FinishTime, OverallPosition,
+     CategoryPosition, ResultStatus)
+VALUES
+    (1, '00:28:45', 35, 8, 'Finished'),
+    (2, '00:52:30', 72, 15, 'Finished');
+GO
+
+
+/* ======================================================
+   SAMPLE ROUTES
+   ====================================================== */
+
+INSERT INTO Routes
+    (EventID, RouteName, DistanceKm,
+     RouteDescription, MapUrl)
+VALUES
+    (1,
+     'Durban Beachfront Route',
+     21.10,
+     'A coastal route starting and finishing near the Durban beachfront.',
+     'https://example.com/routes/durban-summer'),
+
+    (2,
+     'Umlazi Community Route',
+     10.00,
+     'A community road route through selected Umlazi areas.',
+     'https://example.com/routes/umlazi-community'),
+
+    (3,
+     'KZN Cycle Challenge Route',
+     80.00,
+     'A cycling route starting in Durban and covering surrounding roads.',
+     'https://example.com/routes/kzn-cycle');
+GO
+
+
+/* ======================================================
+   SAMPLE WEATHER INFORMATION
+   ====================================================== */
+
+INSERT INTO WeatherInformation
+    (EventID, Temperature, WeatherCondition,
+     WindSpeed, RainProbability)
+VALUES
+    (1, 24.50, 'Partly Cloudy', 12.00, 20.00),
+    (2, 23.00, 'Sunny', 8.00, 10.00),
+    (3, 21.50, 'Cloudy', 15.00, 30.00);
 GO
