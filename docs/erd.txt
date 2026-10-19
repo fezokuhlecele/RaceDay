@@ -1,0 +1,4 @@
+[Roles] (1) <---> (N) [Users]
+[Users (Organisers)] (1) <---> (N) [Events]
+[Users (Participants)] (1) <---> (N) [Enrolments]
+[Events] (1) <---> (N) [Enrolments]
